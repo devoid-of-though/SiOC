@@ -232,7 +232,7 @@ axs[1].set_title('Zmniejszenie za pomocą average')
 print("MSE for image4 with average downscale:", calculate_mse(image4, bez_int(downscaled_image4_avg, average, 2)))
 downscaled_image4_nn = downscale(image4, pierwszy, 2)
 axs[2].imshow(downscaled_image4_nn)
-axs[2].set_title('Zmniejszenie za pomocą pierwszego')
+axs[2].set_title('Zmniejszenie za pomocą pierwszego') 
 print("MSE for image4 with pierwszy downscale:", calculate_mse(image4, bez_int(downscaled_image4_nn,average,2)))
 
 fig, axs = plt.subplots(1, 3, figsize=(15, 5))
@@ -273,6 +273,7 @@ dwarazydawa = upscale(dwarazydawa, h3, 2)
 dwarazydawa = upscale(dwarazydawa, h3, 2)
 axs[3].imshow(upscale(dwarazydawa, h3, 2))
 axs[3].set_title('Obraz przeskalowany 4 razy 2 krotnie')"""
+
 
 
 plt.show()

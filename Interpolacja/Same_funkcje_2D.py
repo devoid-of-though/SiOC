@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from skimage import io
 import numpy as np
 from skimage.metrics import mean_squared_error
-from skimage.transform import resize
 matplotlib.use('TkAgg')
 
 #wczytywanie obrazu
