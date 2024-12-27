@@ -5,16 +5,20 @@ import numpy as np
 from skimage.metrics import mean_squared_error
 matplotlib.use('TkAgg')
 
+#import obrazów
+image1 = io.imread("path")
 
-image1 = io.imread("/hopathme/userbrigh/PycharmProjects/SiOC/Obrazy/ghop2.jpg")
+#kernel liniowy do interpolacji
 def h3(original_x, new_x, width):
     t = (original_x - new_x) / width
     if 1 - abs(t) > 0:
         return 1 - abs(t)
     return 0
+#filtr bayera
 def bayer_filter():
     mask = [ [[0, 1, 0], [1, 0, 0]],             [[0, 0, 1], [0, 1, 0]]]
     return mask
+#filtr fuji
 def fuji_filter():
     mask = [ [[0, 1, 0], [1, 0, 0], [0, 0, 1],[0, 1, 0], [1, 0, 0], [0, 0, 1]],
              [[1, 0, 0], [0, 1, 0], [0, 1, 0],[0, 0, 1], [0, 1, 0], [0, 1, 0]],
@@ -25,7 +29,7 @@ def fuji_filter():
              ]
 
     return mask
-
+#kernele do wykrywania krawędzi
 def sobel_x():
     mask = [[-1, 0, 1],
             [-2, 0, 2],
@@ -63,7 +67,7 @@ def scharr_y2():
             [0, 0, 0],
             [-3, -10, -3]]
     return mask
-
+#Kernele gaussowskie
 def gaussian_blur_3x3():
     mask = [[1, 2, 1],
             [2, 4, 2],
@@ -86,44 +90,57 @@ def gaussian_blur_7x7():
             [6, 36, 90, 120, 90, 36, 6],
             [1, 6, 15, 20, 15, 6, 1]]
     return mask / np.sum(mask)
+#kernel uśredniający
 def blur_kernel():
     mask = [[1, 1, 1],
             [1, 1, 1],
             [1, 1, 1]]
     return mask / np.sum(mask)
+#kernel wyostrajaący
 def W():
     mask = [[0, -1, 0],
             [-1, 5, -1],
             [0, -1, 0]]
     return mask
+#kernel do demozaikowania filtra bayer
 def average(weight):
     mask = [[0, 1*weight, 0],
             [1*weight, 4*weight, 1*weight],
             [0, 1*weight, 0]]
     return mask
+#funkcja przekształcająca obraz rgb na obraz odpowiadający powstałemu z użyciem filtra bayera
 def filtr(image, kernel):
     mask = kernel()
     kernel_size = len(mask[0])
     height, width, channel = image.shape
+    #utworzenie nowego obrazu
     new_image = np.zeros_like(image)
+    #iteracja poprzez obraz i użycie maski
     for i in range(0, height, kernel_size):
         for j in range(0, width, kernel_size):
             new_image[i:i+kernel_size, j:j+kernel_size] = image[i:i+kernel_size, j:j+kernel_size] * mask
     return new_image
+
+#konwolucja wykorzstująca operator sobela-feldmana
 def sobel_feldman(image,padding):
+    #zastosowanie paddingu
     new_image = np.pad(image, ((padding, padding), (padding, padding)), mode="edge")
     height, width = image.shape
+    #utworzenie tablic na gradienty
     gradient_magnitude = np.zeros_like(image, dtype=np.float32)
     gradient_direction = np.zeros_like(image, dtype=np.float32)
+    #iteracja poprzez każdy piksel obrazu i użycie maski
     for i in range(height):
         for j in range(width):
             values = new_image[i:i+3, j:j+3]
             gx = np.sum(values * sobel_x())
             gy = np.sum(values * sobel_y())
+            #policzenie gradientów
             gradient_magnitude[i, j] = np.sqrt(gx**2 + gy**2)
             gradient_direction[i, j] = np.arctan2(gy, gx)
     new_image = np.clip((gradient_magnitude/gradient_direction)*255, 0, 255).astype(np.uint8)
     return [new_image, gradient_magnitude, gradient_direction]
+#konwolucja wykorzstująca operator scharr'a
 def scharr(image,padding):
     new_image = np.pad(image, ((padding, padding), (padding, padding)), mode="edge")
     height, width = image.shape
@@ -155,7 +172,7 @@ def scharr2(image,padding):
     return [new_image, gradient_magnitude, gradient_direction]
 
 
-
+#funkcja interpolująca
 def interpolate(x_vals, y_vals, x_interp, kernel):
     y_interp = np.zeros(len(x_interp))
     for j in range(len(x_interp)):
@@ -173,100 +190,138 @@ def interpolate(x_vals, y_vals, x_interp, kernel):
             y_interp[j] = contribution / total_weight
     return y_interp
 
+#interpolacja kanałów zawierających wartości rgb
 def interpolate_channel(channel,height,width,kernel):
-    interp_channel = channel.copy()
+    #utworzenie kopii kanału
+    new_channel =  channel.copy()
     for row in range(height):
+        #znalezienie wartości większych od zera w wierszu
         x_vals = np.where(channel[row, :] > 0)[0]
         if len(x_vals) > 1:
             y_vals = channel[row, x_vals]
             x_interp = np.arange(width)
-            interp_channel[row, :] = interpolate(x_vals, y_vals, x_interp, kernel)
+            #interpolacja
+            new_channel[row, :] = interpolate(x_vals, y_vals, x_interp, kernel)
 
     for col in range(width):
-        y_vals = interp_channel[:, col]
+        #znalezienie wartości większych od zera w kolumnie
+        y_vals = new_channel[:, col]
         x_vals = np.where(y_vals > 0)[0]
         if len(x_vals) > 1:
+            #interpolacja
             y_interp = interpolate(x_vals, y_vals[x_vals], np.arange(height), kernel)
-            interp_channel[:, col] = y_interp
-    return interp_channel
+            new_channel[:, col] = y_interp
+    return new_channel
+
+#interpolacja kanałów zawierających wartości rgb tylko w kolumnach
 def col_interpolate(channel,height,width,kernel):
-    interp_channel = channel.copy()
+    #utworzenie kopii kanału
+    new_channel = channel.copy()
     for col in range(width):
-        y_vals = interp_channel[:, col]
+        #znalezienie wartości większych od zera w kolumnie
+        y_vals = new_channel[:, col]
         x_vals = np.where(y_vals > 0)[0]
         if len(x_vals) > 1:
+            #interpolacja
             y_interp = interpolate(x_vals, y_vals[x_vals], np.arange(height), kernel)
-            interp_channel[:, col] = y_interp
-    return interp_channel
-
+            new_channel[:, col] = y_interp
+    return new_channel
+#demozajkowanie obrazu z zastosowanym filtrem bayer
 def demosaic_bayer_interpolate(image, kernel):
+    #utworzenie kanałów
     height, width, _ = image.shape
     R = np.zeros((height, width))
     G = np.zeros((height, width))
     B = np.zeros((height, width))
+    #wypełnienie czerwonego kanału
     R[0::2, 1::2] = image[0::2, 1::2, 0]
+    #wypełnienie niebieskiego kanału
     B[1::2, 0::2] = image[1::2, 0::2, 2]
+    #wypełnienie zielonego kanału
     G[0::2, 0::2] = image[0::2, 0::2, 1]
     G[1::2, 1::2] = image[1::2, 1::2, 1]
+    #interpolacja koloru czerwonego
     R = interpolate_channel(R,height,width,kernel)
+    #interpolacja koloru zielonego
     G = col_interpolate(G,height,width,kernel)
+    #interpolacja koloru niebieskiego
     B = interpolate_channel(B,height,width,kernel)
+    #złożenie wszystkich kanałów
     demosaiced_image = np.stack((R, G, B), axis=-1)
     return np.clip(demosaiced_image, 0, 255).astype(np.uint8)
 
 def demosaic_fuji(image, kernel):
+    #utworzenie kanałów
     height, width, _ = image.shape
     R = np.zeros((height, width))
     G = np.zeros((height, width))
     B = np.zeros((height, width))
+    #wypełnienie czerwonego kanału
     R[2::3, 0::3] = image[2::3, 0::3, 0]
     R[0::3, 1::3] = image[0::3, 1::3, 0]
+    #wypełnienie niebieskiego kanału
     B[1::3, 0::3] = image[1::3, 0::3, 2]
     B[0::3, 2::3] = image[0::3, 2::3, 2]
+    #wypełnienie zielonego kanału
     G[0::3, 0::3] = image[0::3, 0::3, 1]
     G[1::3, 1::3] = image[1::3, 1::3, 1]
     G[2::3, 1::3] = image[2::3, 1::3, 1]
     G[2::3, 2::3] = image[2::3, 2::3, 1]
     G[1::3, 2::3] = image[1::3, 2::3, 1]
+    #interpolacja koloru czerwonego
     R = interpolate_channel(R,height,width,kernel)
+    #interpolacja koloru zielonego
     G = col_interpolate(G,height,width,kernel)
+    #interpolacja koloru niebieskiego
     B = interpolate_channel(B,height,width,kernel)
+    #złożenie wszystkich kanałów
     new_image = np.stack((R, G, B), axis=-1)
     return np.clip(new_image, 0, 255).astype(np.uint8)
 
 def demosaic_bayer_convolve(image, kernel, padding):
+    #utworzenie kanałów
     height, width, _ = image.shape
     R = np.zeros((height, width))
     G = np.zeros((height, width))
     B = np.zeros((height, width))
+    #wypełnienie czerwonego kanału
     R[0::2, 1::2] = image[0::2, 1::2, 0]
+    #wypełnienie niebieskiego kanału
     B[1::2, 0::2] = image[1::2, 0::2, 2]
+    #wypełnienie zielonego kanału
     G[0::2, 0::2] = image[0::2, 0::2, 1]
     G[1::2, 1::2] = image[1::2, 1::2, 1]
+    #konwolucja kanału czerwonego z kernelem
     R = convolve(R, kernel(4), padding)
+    #konwolucja kanału zielonego z kernelem
     G = convolve(G, kernel(2), padding)
+    #konwolucja kanału niebieskiego z kernelem
     B = convolve(B, kernel(4), padding)
+    #złożenie wszystkich kanałów
     new_image = np.stack((R, G, B), axis=-1)
     return np.clip(new_image, 0, 255).astype(np.uint8)
 
 def convolve(image, kernel, padding):
+    #zastosowanie paddingu
     image = np.pad(image, ((padding, padding), (padding, padding)), mode="constant")
     kernel = np.array(kernel, dtype=np.float32)
     kernel_size = kernel.shape[0]
     height, width = image.shape
     new_image = np.zeros((height - 2 * padding, width - 2 * padding), dtype=np.float32)
+    #iteracja poprzez obraz i użycie kernela
     for i in range(height - kernel_size + 1):
         for j in range(width - kernel_size + 1):
             region = image[i:i + kernel_size, j:j + kernel_size]
             new_image[i, j] = np.sum(region * kernel) / 8
     return new_image
 def blur(image, kernel, padding):
+    #zastosowanie paddingu
     image = np.pad(image, ((padding, padding), (padding, padding), (0, 0)), mode="constant")
     mask = kernel()
     kernel_size = len(mask[0])
     height, width, channel = image.shape
     new_image = np.zeros_like(image)
-
+    #iteracja poprzez obraz i użycie kernela
     for i in range(height - kernel_size + 1):
         for j in range(width - kernel_size + 1):
             for c in range(channel):
@@ -274,11 +329,13 @@ def blur(image, kernel, padding):
                 new_image[i, j, c] = np.sum(values * mask)
     return new_image
 def sharpen(image, kernel, padding):
+    #zastosowanie paddingu
     image = np.pad(image, ((padding, padding), (padding, padding), (0, 0)), mode="constant")
     mask = kernel()
     kernel_size = len(mask[0])
     height, width, channel = image.shape
     new_image = np.zeros_like(image,dtype=np.float32)
+    #iteracja poprzez obraz i użycie kernela
     for i in range(height - kernel_size + 1):
         for j in range(width - kernel_size + 1):
             for c in range(channel):
@@ -287,11 +344,13 @@ def sharpen(image, kernel, padding):
     new_image = np.clip(new_image, 0, 255).astype(np.uint8)
     return new_image
 def edge(image, kernel, padding):
+    #zastosowanie paddingu
     image = np.pad(image, padding, mode="constant")
     mask = kernel()
     kernel_size = len(mask[0])
     height, width = image.shape
     new_image = np.zeros_like(image)
+    #iteracja poprzez obraz i użycie kernela
     for i in range(height - kernel_size + 1):
         for j in range(width - kernel_size + 1):
             values = image[i:i+kernel_size, j:j+kernel_size]
