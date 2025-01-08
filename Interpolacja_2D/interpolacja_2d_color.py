@@ -6,8 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
 
-image = resize(io.imread("/home/userbrigh/PycharmProjects/SiOC/Obrazy/Test.png"), (10, 10))
-image2 = resize(io.imread("/home/userbrigh/PycharmProjects/SiOC/Obrazy/10x10_color.png"), (10, 10))
+image2 = resize(io.imread("/home/userbrigh/PycharmProjects/SiOC/Obrazy/10x10_color.png"), (20, 20))
 def sample_hold_kernel2d(x: NDArray, offset: NDArray, width: float) -> NDArray:
     """Sample and hold interpolation kernel"""
     offset = offset[np.newaxis, np.newaxis, :]
@@ -65,25 +64,29 @@ def linear_kernel2d(x: NDArray, offset: NDArray, width: float) -> NDArray:
 
 def image_interpolate2d(image: NDArray, ratio: int, kernel: callable) -> NDArray:
     w = ratio
-    target_shape = (image.shape[0] * ratio, image.shape[1] * ratio)
+    #wymiary zinterpolowanego obrazu
+    new_image_shape = (image.shape[0] * ratio, image.shape[1] * ratio)
+    #utworzenie siatki punktów po których będziemy iterować
     image_grid = np.zeros((image.shape[0], image.shape[1], 2), dtype=int)
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
             image_grid[i, j] = [i, j]
-    interpolate_grid = np.zeros((target_shape[0], target_shape[1], 2), dtype=float)
-    for i in range(target_shape[0]):
-        for j in range(target_shape[1]):
+    #utworzenie siatki punktów do interpolacji
+    interpolate_grid = np.zeros((new_image_shape[0], new_image_shape[1], 2), dtype=float)
+    for i in range(new_image_shape[0]):
+        for j in range(new_image_shape[1]):
             interpolate_grid[i, j] = [i / ratio, j / ratio]
     kernels = []
+    #Zastosuowanie kernela dla każdego piksela z podziałem na kanały kolorów
     for channel in range(image.shape[2]):
         channel_kernels = []
         for point, value in zip(image_grid.reshape(-1, 2), image[:, :, channel].ravel()):
             ker = value * kernel(interpolate_grid, offset=point, width=w)
-            channel_kernels.append(ker.reshape(target_shape))
+            channel_kernels.append(ker.reshape(new_image_shape))
         kernels.append(np.sum(np.asarray(channel_kernels), axis=0))
     return np.stack(kernels, axis=-1)
 
 plt.figure(figsize=(15, 5))
-plt.imshow(image_interpolate2d(image2, 2, keys_kernel2d))
+plt.imshow(image_interpolate2d(image2, 2, nearest_neighbour_kernel2d))
 plt.title("Interpolated image")
 plt.show()
