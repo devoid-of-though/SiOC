@@ -6,7 +6,6 @@ from scipy.fftpack import dct, idct
 
 matplotlib.use('TkAgg')
 
-# Load images
 image1 = io.imread("/home/userbrigh/PycharmProjects/SiOC/Fourier/circle-noised.png")
 image2 = io.imread("/home/userbrigh/PycharmProjects/SiOC/Fourier/namib-noised.png")
 
@@ -37,12 +36,10 @@ def denoise_image_color(image):
         denoised_image[:, :, i] = denoise_image_with_fourier(image[:, :, i])
     return np.clip(denoised_image, 0, 255).astype(np.uint8)
 
-# Apply denoising
 denoised_image1 = denoise_image_with_fourier(image1)
 denoised_image2 = denoise_image_color(image2)
 denoised_image3 = denoise_image_with_cosine(image1)
 
-# Display results
 plt.figure(figsize=(15, 5))
 plt.subplot(1, 3, 1)
 plt.imshow(image1, cmap='gray')
