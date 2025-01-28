@@ -10,25 +10,22 @@ image1 = io.imread("/home/userbrigh/PycharmProjects/SiOC/Fourier/circle-noised.p
 image2 = io.imread("/home/userbrigh/PycharmProjects/SiOC/Fourier/namib-noised.png")
 
 def denoise_image_with_fourier(image):
-    cutoff = 0.1
-    after_fourier = np.fft.fft2(image)
-    after_fourier_shifted = np.fft.fftshift(after_fourier)
-    rows, cols = image.shape
-    crow, ccol = rows // 2, cols // 2
-    radius = int(cutoff * min(rows, cols))
-    y, x = np.ogrid[:rows, :cols]
-    mask = (x - ccol) ** 2 + (y - crow) ** 2 <= radius ** 2
-    filtered_fourier = after_fourier_shifted * mask
-    filtered_fourier_unshifted = np.fft.ifftshift(filtered_fourier)
-    denoised_image = np.fft.ifft2(filtered_fourier_unshifted)
-    return np.abs(denoised_image)
-
+    im_fft = np.fft.fft2(image)
+    keep_fraction = 0.1
+    im_fft2 = im_fft.copy()
+    r, c = im_fft2.shape
+    im_fft2[int(r*keep_fraction):int(r*(1-keep_fraction))] = 0
+    im_fft2[:, int(c*keep_fraction):int(c*(1-keep_fraction))] = 0
+    im_new = np.fft.ifft2(im_fft2)
+    return np.abs(im_new)
 def denoise_image_with_cosine(image):
-    cutoff = 200
+    keep_fraction = 0.1 
     dct_image = dct(dct(image.T, norm='ortho').T, norm='ortho')
-    dct_image[np.abs(dct_image) < cutoff] = 0
+    r, c = dct_image.shape
+    dct_image[int(r*keep_fraction):int(r*(1-keep_fraction))] = 0
+    dct_image[:, int(c*keep_fraction):int(c*(1-keep_fraction))] = 0
     denoised_image = idct(idct(dct_image.T, norm='ortho').T, norm='ortho')
-    return np.clip(denoised_image, 0, 255).astype(np.uint8)
+    return np.abs(denoised_image)
 
 def denoise_image_color(image):
     denoised_image = np.zeros_like(image, dtype=np.float64)
